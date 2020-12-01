@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\API;
 
 use App\Models\User;
+use App\Models\Verification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Validator;
+use function GuzzleHttp\Psr7\str;
 
 class AuthController extends BaseController
 {
@@ -28,6 +31,8 @@ class AuthController extends BaseController
 
         $success['token'] = $user->createToken('melcafe')->accessToken;
         $success['user'] = $user;
+
+        Verification::create(['user_id' => $user->id, 'token' => Str::random(30)]);
 
         return $this->sendResponse($success, 'User register success');
     }

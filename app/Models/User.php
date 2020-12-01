@@ -9,7 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasFactory, Notifiable, HasApiTokens;
 
@@ -53,5 +53,9 @@ class User extends Authenticatable
         if (!is_null($this->attributes['updated_at'])) {
             return Carbon::parse($this->attributes['updated_at'])->format("Y-m-d H:i:s");
         }
+    }
+
+    public function verification() {
+        return $this->hasOne('App\Verification');
     }
 }
