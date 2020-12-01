@@ -22,6 +22,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'user_role'
     ];
 
     /**
@@ -57,5 +58,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function verification() {
         return $this->hasOne('App\Verification');
+    }
+
+    public function customer() {
+        return $this->hasOne('App\Customer');
     }
 }

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\API\AuthController;
+use App\Http\Controllers\API\MenuController;
+use App\Http\Controllers\API\OrderController;
 use App\Http\Controllers\API\VerificationController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,3 +22,6 @@ Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('verify', [VerificationController::class, 'verify']);
 });
+
+Route::resource('order', OrderController::class);
+Route::resource('menu', MenuController::class);
