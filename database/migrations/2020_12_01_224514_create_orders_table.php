@@ -21,7 +21,7 @@ class CreateOrdersTable extends Migration
             $table->integer('order_tax');
             $table->integer('order_delivery');
             $table->integer('order_grand_total');
-            $table->integer('address');
+            $table->string('address');
             $table->double('lat', 10, 7);
             $table->double('lon', 10, 7);
             $table->double('distance', 10, 3);
