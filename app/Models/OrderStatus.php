@@ -24,6 +24,10 @@ class OrderStatus extends Model
         }
     }
 
+    /*
+     * Eloquent Model
+     */
+
     public function order() {
         return $this->belongsTo('App\Models\Order');
     }

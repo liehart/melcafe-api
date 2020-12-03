@@ -13,6 +13,10 @@ class Verification extends Model
         'user_id', 'token', 'is_used'
     ];
 
+    /*
+     * Eloquent Model
+     */
+
     public function user() {
         return $this->belongsTo('App\Models\User');
     }

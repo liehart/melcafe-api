@@ -11,12 +11,7 @@ class Customer extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'address',
-        'gender',
-        'telephone',
-        'dob',
-        'image'
+        'user_id', 'address', 'gender', 'telephone', 'dob', 'image'
     ];
 
     public function getCreatedAtAttribute() {
@@ -30,6 +25,10 @@ class Customer extends Model
             return Carbon::parse($this->attributes['updated_at'])->format("Y-m-d H:i:s");
         }
     }
+
+    /*
+     * Eloquent Model
+     */
 
     public function user() {
         return $this->belongsTo('App\User');

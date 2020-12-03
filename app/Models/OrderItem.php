@@ -11,6 +11,10 @@ class OrderItem extends Model
 
     protected $fillable = ['menu_id', 'order_id', 'quantity'];
 
+    /*
+     * Eloquent Model
+     */
+
     public function order() {
         return $this->belongsTo('App\Models\Order');
     }

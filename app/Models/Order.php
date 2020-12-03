@@ -28,6 +28,10 @@ class Order extends Model
         }
     }
 
+    /*
+     * Eloquent Model
+     */
+
     public function order_status() {
         return $this->hasMany('App\Models\OrderStatus');
     }

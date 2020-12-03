@@ -56,6 +56,10 @@ class User extends Authenticatable implements MustVerifyEmail
         }
     }
 
+    /*
+     * Eloquent Model
+     */
+
     public function verification() {
         return $this->hasOne('App\Models\Verification');
     }
