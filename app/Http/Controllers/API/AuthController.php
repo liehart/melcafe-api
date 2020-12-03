@@ -21,6 +21,18 @@ class AuthController extends BaseController
 
     public static $role = [self::_ADMIN, self::_CUSTOMER, self::_DRIVER];
 
+    public function index() {
+        $user = Auth::guard('api')->user();
+        if ($user) {
+            if ($user->user_role == 'customer') {
+                $user->customer->first();
+            }
+            return $this->sendResponse($user, 'User retrieved');
+        }
+
+        return $this->sendError('Unauthorised.', ['error'=>'Unauthorised']);
+    }
+
     public function register(Request $request) {
         $validator = Validator::make($request->all(), [
             'name' => 'required|max:100',
@@ -47,7 +59,7 @@ class AuthController extends BaseController
         Verification::create($input);
         Customer::create($input);
 
-        return $this->sendResponse($user, 'User register success');
+        return $this->sendResponse($user, 'User register success', 201);
     }
 
     public function login(Request $request) {
@@ -56,6 +68,10 @@ class AuthController extends BaseController
 
             $success['token'] = $user->createToken('melcafe')->accessToken;
             $success['user'] = $user;
+
+            if ($user->user_role == 'customer') {
+                $user->customer->first();
+            }
 
             return $this->sendResponse($success, 'User login success');
         }

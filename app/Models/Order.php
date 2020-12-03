@@ -28,11 +28,11 @@ class Order extends Model
         }
     }
 
-    public function orderstatus() {
+    public function order_status() {
         return $this->hasMany('App\Models\OrderStatus');
     }
 
-    public function orderitem() {
+    public function order_item() {
         return $this->hasMany('App\Models\OrderItem');
     }
 

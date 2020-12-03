@@ -6,14 +6,14 @@ use App\Http\Controllers\Controller;
 
 class BaseController extends Controller
 {
-    public function sendResponse($result, $message) {
+    public function sendResponse($result, $message, $resp_code = 200) {
         $response = [
             'success' => true,
             'message' => $message,
             'data' => $result,
         ];
 
-        return response()->json($response, 200);
+        return response()->json($response, $resp_code);
     }
 
     public function sendError($error, $errorMessage = [], $errorCode = 404) {

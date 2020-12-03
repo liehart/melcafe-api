@@ -3,13 +3,22 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\API\ReceiptController;
 use App\Models\Menu;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatus;
+use App\Models\User;
+use Carbon\Carbon;
 use Faker\Provider\Base;
 use http\Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Passport\Passport;
+use LaravelDaily\Invoices\Classes\Buyer;
+use LaravelDaily\Invoices\Classes\InvoiceItem;
+use LaravelDaily\Invoices\Classes\Party;
+use LaravelDaily\Invoices\Facades\Invoice;
 use Validator;
 
 class OrderController extends BaseController
@@ -17,27 +26,40 @@ class OrderController extends BaseController
     /**
      * Display a listing of the resource.
      *
+     * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
-        $userid = 1; #Auth::guard('api')->user()->id;
-        $user_role = 'customer'; #Auth::guard('api')->user()->user_role;
+        $userid = Auth::guard('api')->user()->id;
+        $user_role = Auth::guard('api')->user()->user_role;
 
         if ($userid == null || $user_role == null) {
             return $this->sendError('Unauthorized');
         }
 
-        if ($user_role == 'admin') {
-            $orders = Order::all();
-        } else if ($user_role == 'customer') {
-            $orders = Order::where('user_id', $userid)->get();
+        if ($request->input('status')){
+            if ($request->input('status') == 'ongoing') {
+                $orders = Order::whereHas('order_status', function ($query) use ($request) {
+                    return $query->where('order_status', '!=', 'completed');
+                })->with('order_item', 'order_item.menu')->with('order_status')->get();
+            } else {
+                $orders = Order::whereHas('order_status', function ($query) use ($request) {
+                    return $query->where('order_status', '=', $request->input('status'));
+                })->with('order_status')->get();
+            }
         } else {
-            return $this->sendError('No permission to access this route');
+            if ($user_role == 'admin') {
+                $orders = Order::all();
+            } else if ($user_role == 'customer') {
+                $orders = Order::where('user_id', $userid)->get();
+            } else {
+                return $this->sendError('No permission to access this route');
+            }
         }
 
         if (count($orders) > 0) {
-            return $this->sendResponse($orders, 'Retrieve all orders success');
+            return $this->sendResponse($orders, 'Retrieve all orders success', 201);
         }
 
         return $this->sendError('No orders available');
@@ -51,7 +73,7 @@ class OrderController extends BaseController
      */
     public function store(Request $request)
     {
-        $userid = 1; #Auth::guard('api')->user()->id;
+        $userid = Auth::guard('api')->user()->id;
 
         $request_data = $request->all();
 
@@ -94,7 +116,17 @@ class OrderController extends BaseController
             OrderItem::create($item);
         }
 
-        return $this->sendResponse($order, 'Order created');
+        OrderStatus::create([
+            'order_id' => $order->id,
+            'order_status'=> 'confirmed'
+        ]);
+
+        $path = $this->createInvoice($order->id);
+
+        $order->receipt = $path;
+        $order->save();
+
+        return $this->sendResponse($order, 'Order created', 201);
 
     }
 
@@ -143,5 +175,55 @@ class OrderController extends BaseController
 
         $order->delete();
         return $this->sendResponse(null, 'Order deleted successfully.');
+    }
+
+    public function createInvoice($id) {
+        $order = Order::find($id);
+        $user = User::find($order->user_id);
+        $customer = new Buyer([
+            'name'          => $user->name,
+            'custom_fields' => [
+                'address' => $order->address,
+                'telephone' => $user->customer->telephone,
+            ],
+        ]);
+
+        $client = new Party([
+            'name'          => 'Melcafe Delivery',
+            'phone'         => '(0274) 2808881',
+            'custom_fields' => [
+                'address'        => 'Jl. Babarsari No.3, Janti, Caturtunggal Kec. Depok, Kab. Sleman, DI Yogyakarta INDONESIA 55281',
+                'email' => 'kontak@melcafe.tugasbesar.com'
+            ],
+        ]);
+
+        $items = [];
+        $order_item = $order->order_item;
+
+        foreach ($order_item as $item) {
+            array_push($items, (new InvoiceItem())->title($item->menu->name)->pricePerUnit($item->menu->price)->quantity($item->quantity));
+        }
+
+
+        $invoice = Invoice::make()
+            ->series($order->order_number)
+            ->serialNumberFormat('{SERIES}')
+            ->buyer($customer)
+            ->seller($client)
+            ->discountByPercent(10)
+            ->currencySymbol('Rp.')
+            ->currencyCode('IDR')
+            ->taxRate(10)
+            ->date(new Carbon($order->created_at))
+            ->currencyFormat('{SYMBOL}{VALUE}')
+            ->currencyThousandsSeparator('.')
+            ->currencyDecimalPoint(',')
+            ->addItems($items)
+            ->payUntilDays(-1)
+            ->name("Melcafe Receipt")
+            ->filename($order->order_number)
+            ->save('public');
+
+        return $invoice->url();
     }
 }

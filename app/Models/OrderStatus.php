@@ -10,6 +10,8 @@ class OrderStatus extends Model
 {
     use HasFactory;
 
+    protected $fillable = ['order_id', 'order_status'];
+
     public function getCreatedAtAttribute() {
         if (!is_null($this->attributes['created_at'])) {
             return Carbon::parse($this->attributes['created_at'])->format("Y-m-d H:i:s");
