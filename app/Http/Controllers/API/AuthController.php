@@ -56,8 +56,14 @@ class AuthController extends BaseController
         $input['user_id'] = $user->id;
         $input['token'] = Str::random(30);
 
-        Verification::create($input);
+        $verif = Verification::create($input);
         Customer::create($input);
+
+        /*
+         * TODO:
+         * Kasi code buat kirim email di bawah ini
+         * Send $verif->token
+         */
 
         return $this->sendResponse($user, 'User register success', 201);
     }
@@ -71,6 +77,12 @@ class AuthController extends BaseController
 
             if ($user->user_role == 'customer') {
                 $user->customer->first();
+                /*
+                 * TODO:
+                 * Cek email user udah di verif belum
+                 * cek pake kolom email_verified_at if (!$user->email_verified_at)
+                 * kalo ga true return error email belum di verif
+                 */
             }
 
             return $this->sendResponse($success, 'User login success');
