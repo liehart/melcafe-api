@@ -195,7 +195,32 @@ class OrderController extends BaseController
      */
     public function update(Request $request, $id)
     {
-        //
+        $order = Order::find($id);
+
+        if (is_null($order)) {
+            return $this->sendError('Order not found');
+        }
+
+        $request_data = $request->all();
+
+        /**
+         * Validate data sent from client
+         */
+        $validator = Validator::make($request->all(), [
+            'address' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            /**
+             * Return error validation if one or many validation fail
+             */
+            return $this->sendError('Validation error', $validator->errors());
+        }
+
+        $order->address = $request_data['address'];
+        $order->save();
+
+        return $this->sendResponse($order, 'Order retrieved successfully');
     }
 
     /**

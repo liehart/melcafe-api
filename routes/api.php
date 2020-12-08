@@ -34,6 +34,7 @@ Route::resource('order', OrderController::class)->middleware('auth:api');
 Route::resource('menu', MenuController::class);
 Route::resource('driver', DriverController::class);
 Route::post('menu/image/{id}', [MenuController::class, 'updateImage']);
+Route::post('customer/image/{id}', [CustomerController::class, 'updateImage']);
 Route::resource('customer', CustomerController::class);
 Route::post('/order/distance', [DistanceController::class, 'index']);
 Route::post('/order/send_update', [OrderStatusController::class, 'store']);

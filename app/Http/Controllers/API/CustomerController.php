@@ -8,6 +8,7 @@ use App\Models\User;
 use Cassandra\Custom;
 use Faker\Provider\Base;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class CustomerController extends BaseController
@@ -100,5 +101,33 @@ class CustomerController extends BaseController
         $customer->user->delete();
 
         return $this->sendResponse(null, 'Customer deleted successfully.');
+    }
+
+    public function updateImage(Request $request, $id) {
+        $customer = Customer::find($id);
+
+        if (is_null($customer))
+            return $this->sendError('Menu not found');
+
+        $store_data = $request->all();
+        $validator = Validator::make($store_data, [
+            'image' => 'required',
+        ]);
+
+        if ($validator->fails())
+            return $this->sendError('Validation error', $validator->errors());
+
+        if ($request->hasFile('image')) {
+            if ($request->file('image')->isValid()) {
+                $extension = $request->image->extension();
+                $name = $_SERVER['REQUEST_TIME'];
+                $request->image->storeAs('/public', $name.".".$extension);
+                $customer->image = Storage::url($name.".".$extension);
+                $customer->save();
+                return $this->sendResponse($customer->image, 'Updage image success');
+            }
+        }
+
+        return $this->sendError('Update image failed');
     }
 }
