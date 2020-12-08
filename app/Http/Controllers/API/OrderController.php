@@ -2,43 +2,49 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
-use App\Http\Controllers\API\ReceiptController;
 use App\Models\Menu;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderStatus;
 use App\Models\User;
 use Carbon\Carbon;
-use Faker\Provider\Base;
-use http\Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Laravel\Passport\Passport;
 use LaravelDaily\Invoices\Classes\Buyer;
 use LaravelDaily\Invoices\Classes\InvoiceItem;
 use LaravelDaily\Invoices\Classes\Party;
 use LaravelDaily\Invoices\Facades\Invoice;
-use Validator;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends BaseController
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the orders.
+     * Return all orders if the request's role is admin.
+     * Return all orders associated with current request's
+     * user if the role is customer or driver.
      *
      * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function index(Request $request)
     {
-        $userid = Auth::guard('api')->user()->id;
-        $user_role = Auth::guard('api')->user()->user_role;
+        $user = Auth::guard('api')->user();
 
-        if ($userid == null || $user_role == null) {
+        if ($user->id == null || $user->user_role == null) {
+            /**
+             * Return unauthorized request if no user present checked from JWT token.
+            */
             return $this->sendError('Unauthorized');
         }
 
         if ($request->input('status')){
+            /**
+             * Check request url query parameter ?status=ongoing
+             * if status filter was ongoing return only non completed orders
+             * otherwise return respective status: confirmed, on_process, on_delivery, completed
+             */
             if ($request->input('status') == 'ongoing') {
                 $orders = Order::whereHas('order_status', function ($query) use ($request) {
                     return $query->where('order_status', '!=', 'completed');
@@ -49,16 +55,23 @@ class OrderController extends BaseController
                 })->with('order_status')->get();
             }
         } else {
-            if ($user_role == 'admin') {
-                $orders = Order::all();
-            } else if ($user_role == 'customer') {
-                $orders = Order::where('user_id', $userid)->get();
+            if ($user->user_role == 'admin') {
+                $orders = Order::with('user')->with('order_status')->with('order_item', 'order_item.menu')->get();
+            } else if ($user->user_role == 'customer') {
+                $orders = Order::where('user_id', $user->id)->get();
+            } else if ($user->user_role == 'driver') {
+                $orders = Order::where('driver_id', $user->id)->get();
             } else {
                 return $this->sendError('No permission to access this route');
             }
         }
 
         if (count($orders) > 0) {
+            /**
+             * Check the query result
+             * if the result more than 0 return the orders
+             * otherwise return orders is empty
+             */
             return $this->sendResponse($orders, 'Retrieve all orders success', 201);
         }
 
@@ -68,15 +81,21 @@ class OrderController extends BaseController
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\JsonResponse
+     * @param Request $request
+     * @return JsonResponse
      */
     public function store(Request $request)
     {
+        /**
+         * Get request's user id from JWT token
+         */
         $userid = Auth::guard('api')->user()->id;
 
         $request_data = $request->all();
 
+        /**
+         * Validate data sent from client
+         */
         $validator = Validator::make($request->all(), [
             'address' => 'required',
             'lat' => 'required|numeric',
@@ -87,40 +106,60 @@ class OrderController extends BaseController
         ]);
 
         if ($validator->fails()) {
+            /**
+             * Return error validation if one or many validation fail
+             */
             return $this->sendError('Validation error', $validator->errors());
         }
 
+        /**
+         * Prepare data to store on database from request
+         */
         $items = $request_data['items'];
         $request_data['order_total'] = 0;
         $request_data['order_delivery'] = 0;
         $request_data['order_tax'] = 0;
 
         $request_data['user_id'] = $userid;
-        $request_data['order_number'] = "test";
-        $request_data['distance'] = 0;
+        $request_data['order_number'] = 'ORDER-'.strtoupper(date('M',$_SERVER['REQUEST_TIME'])).'-'.strtoupper(uniqid());
+        $distance = (new DistanceController)->getDistance($request_data['lat'], $request_data['lon'])->rows[0]->elements[0]->distance->value;
+        $request_data['distance'] = $distance / 1000;
+        $request_data['order_delivery'] = $distance * 2;
 
         foreach ($items as $item) {
+            /**
+             * Calculate order total by iterating items received
+             */
             $price = Menu::find($item['id'])->price;
             $request_data['order_total'] += $item['quantity'] * $price;
         }
 
         $request_data['order_grand_total'] =  ($request_data['order_total'] + $request_data['order_delivery']);
-        $request_data['order_tax'] = $request_data['order_grand_total'] * 0.1;
+        $request_data['order_tax'] = $request_data['order_total'] * 0.1;
         $request_data['order_grand_total'] += $request_data['order_tax'];
 
         $order = Order::create($request_data);
 
         foreach ($items as $item) {
+            /**
+             * Create orderItem detail by iterating items again.
+             */
             $item['menu_id'] = $item['id'];
             $item['order_id'] = $order['id'];
             OrderItem::create($item);
         }
 
+        /**
+         * Set order status to confirmed automatically for new order
+         */
         OrderStatus::create([
             'order_id' => $order->id,
             'order_status'=> 'confirmed'
         ]);
 
+        /**
+         * Generate PDF invoice
+         */
         $path = $this->createInvoice($order->id);
 
         $order->receipt = $path;
@@ -134,7 +173,7 @@ class OrderController extends BaseController
      * Display the specified resource.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function show($id)
     {
@@ -150,7 +189,7 @@ class OrderController extends BaseController
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param Request $request
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
@@ -163,7 +202,7 @@ class OrderController extends BaseController
      * Remove the specified resource from storage.
      *
      * @param  int  $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return JsonResponse
      */
     public function destroy($id)
     {

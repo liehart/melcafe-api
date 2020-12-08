@@ -12,16 +12,14 @@ use function Composer\Autoload\includeFile;
 
 class VerificationController extends BaseController
 {
-    public function verify(Request $request) {
-        $validator = Validator::make($request->all(), [
-            'token' => 'required',
-        ]);
+    public function verify($token) {
 
-        if ($validator->fails()) {
-            return $this->sendError('Validation error', $validator->errors());
+
+        if (strlen($token) <= 0) {
+            return $this->sendError('Validation error', $token);
         }
 
-        $verification = Verification::where('token', $request->all()['token'])->first();
+        $verification = Verification::where('token', $token)->first();
 
         if (!$verification) {
             return $this->sendError('Token not valid');

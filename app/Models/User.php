@@ -68,6 +68,10 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne('App\Models\Customer');
     }
 
+    public function driver() {
+        return $this->hasOne('App\Models\Driver');
+    }
+
     public function order() {
         return $this->hasMany('App\Models\Order');
     }

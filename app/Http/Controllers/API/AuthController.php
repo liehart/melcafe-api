@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers\API;
 
+
 use App\Models\Customer;
 use App\Models\User;
 use App\Models\Verification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Validator;
 use function GuzzleHttp\Psr7\str;
 use function Symfony\Component\String\u;
+use App\Mail\VerificationMail;
 
 class AuthController extends BaseController
 {
@@ -59,11 +62,21 @@ class AuthController extends BaseController
         $verif = Verification::create($input);
         Customer::create($input);
 
+
+
         /*
          * TODO:
          * Kasi code buat kirim email di bawah ini
          * Send $verif->token
          */
+        try{
+            Mail::to($user->email)->send(
+                new VerificationMail($verif->token)
+            );
+        }catch(Exception $e){
+            return $this->sendError('Email tidak terkirim', $e);
+        };
+
 
         return $this->sendResponse($user, 'User register success', 201);
     }
@@ -77,6 +90,10 @@ class AuthController extends BaseController
 
             if ($user->user_role == 'customer') {
                 $user->customer->first();
+                if(!$user->email_verified_at){
+                    return $this->sendError('Email was not verified');
+                }
+
                 /*
                  * TODO:
                  * Cek email user udah di verif belum

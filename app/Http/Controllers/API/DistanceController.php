@@ -16,24 +16,27 @@ class DistanceController extends BaseController
             'lat' => 'required|numeric',
             'lng' => 'required|numeric',
         ]);
+
         if ($validator->fails()) {
             return $this->sendError('Validation error', $validator->errors());
         }
+
+        $lat = $data['lat'];
+        $lon = $data['lng'];
+
+        return $this->sendResponse($this->getDistance($lat, $lon), "Success", 201);
+    }
+
+    public function getDistance($lat, $lon) {
         $apiKey = 'AIzaSyAw1JxXEUrHvax8cItD7cxl1pO3Ogjhgeo';
 
         $latFrom = -7.7794195;
         $lonFrom = 110.416129;
 
-        $latTo = $data['lat'];
-        $lonTo = $data['lng'];
-
-        $url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins=" . $latFrom . "," . $lonFrom . "&destinations=" . $latTo . "," . $lonTo . "&mode=driving&language=id-ID&key=" . $apiKey;
+        $url = "https://maps.googleapis.com/maps/api/distancematrix/json?origins=" . $latFrom . "," . $lonFrom . "&destinations=" . $lat . "," . $lon . "&mode=driving&language=id-ID&key=" . $apiKey;
 
         $response = Http::get($url);
 
-        $answer = json_decode($response->body());
-
-        return $this->sendResponse($answer, "Success", 201);
-
+        return json_decode($response->body());
     }
 }
